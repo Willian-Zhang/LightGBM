@@ -258,6 +258,29 @@ LIGHTGBM_C_EXPORT int LGBM_DatasetCreateFromMats(int32_t nmat,
                                                  const DatasetHandle reference,
                                                  DatasetHandle* out);
 
+LIGHTGBM_C_EXPORT int LGBM_DatasetCreateEmptyWithSampleFromMats(int32_t nmat,
+                               const void** data,
+                               int data_type,
+                               int32_t* nrow,
+                               int32_t ncol,
+                               int is_row_major,
+                               const char* parameters,
+                               const DatasetHandle reference,
+                               DatasetHandle* out);
+
+LIGHTGBM_C_EXPORT int LGBM_DatasetAddRowsFromMats(int32_t nmat,
+                               const void** data,
+                               int data_type,
+                               int32_t* nrow,
+                               int32_t ncol,
+                               int is_row_major,
+                               const char* parameters,
+                               DatasetHandle* dataset
+                               );
+                               
+LIGHTGBM_C_EXPORT int LGBM_DatasetFinishLoad(DatasetHandle* dataset);
+
+
 /*!
  * \brief Create subset of a data.
  * \param handle Handle of full dataset

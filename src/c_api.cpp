@@ -1121,6 +1121,138 @@ int LGBM_DatasetCreateFromMats(int32_t nmat,
   API_END();
 }
 
+
+// TODO: @Willian replace with sampled data
+int LGBM_DatasetCreateEmptyWithSampleFromMats(int32_t nmat,
+                               const void** data,
+                               int data_type,
+                               int32_t* nrow,
+                               int32_t ncol,
+                               int is_row_major,
+                               const char* parameters,
+                               const DatasetHandle reference,
+                               DatasetHandle* out) {
+  API_BEGIN();
+  auto param = Config::Str2Map(parameters);
+  Config config;
+  config.Set(param);
+  if (config.num_threads > 0) {
+    omp_set_num_threads(config.num_threads);
+  }
+  std::unique_ptr<Dataset> ret;
+  int32_t total_nrow = 0;
+  for (int j = 0; j < nmat; ++j) {
+    total_nrow += nrow[j];
+  }
+
+  std::vector<std::function<std::vector<double>(int row_idx)>> get_row_fun;
+  for (int j = 0; j < nmat; ++j) {
+    get_row_fun.push_back(RowFunctionFromDenseMatric(data[j], nrow[j], ncol, data_type, is_row_major));
+  }
+
+  if (reference == nullptr) {
+    // sample data first
+    Random rand(config.data_random_seed);
+    int sample_cnt = static_cast<int>(total_nrow < config.bin_construct_sample_cnt ? total_nrow : config.bin_construct_sample_cnt);
+    auto sample_indices = rand.Sample(total_nrow, sample_cnt);
+    sample_cnt = static_cast<int>(sample_indices.size());
+    std::vector<std::vector<double>> sample_values(ncol);
+    std::vector<std::vector<int>> sample_idx(ncol);
+
+    int offset = 0;
+    int j = 0;
+    for (size_t i = 0; i < sample_indices.size(); ++i) {
+      auto idx = sample_indices[i];
+      while ((idx - offset) >= nrow[j]) {
+        offset += nrow[j];
+        ++j;
+      }
+
+      auto row = get_row_fun[j](static_cast<int>(idx - offset));
+      for (size_t k = 0; k < row.size(); ++k) {
+        if (std::fabs(row[k]) > kZeroThreshold || std::isnan(row[k])) {
+          sample_values[k].emplace_back(row[k]);
+          sample_idx[k].emplace_back(static_cast<int>(i));
+        }
+      }
+    }
+    DatasetLoader loader(config, nullptr, 1, nullptr);
+    ret.reset(loader.ConstructFromSampleData(Vector2Ptr<double>(&sample_values).data(),
+                                              Vector2Ptr<int>(&sample_idx).data(),
+                                              ncol,
+                                              VectorSize<double>(sample_values).data(),
+                                              sample_cnt, total_nrow));
+  } else {
+    ret.reset(new Dataset(total_nrow));
+    ret->CreateValid(
+      reinterpret_cast<const Dataset*>(reference));
+    if (ret->has_raw()) {
+      ret->ResizeRaw(total_nrow);
+    }
+  }
+  *out = ret.release();
+  API_END();     
+}
+
+int LGBM_DatasetAddRowsFromMats(int32_t nmat,
+                               const void** data,
+                               int data_type,
+                               int32_t* nrow,
+                               int32_t ncol,
+                               int is_row_major,
+                               const char* parameters,
+                               DatasetHandle* dataset
+                               ) {
+  // Do Call LGBM_DatasetFinishLoad manually after all added
+  API_BEGIN();
+  auto ret = reinterpret_cast<Dataset*>(dataset);
+
+  auto param = Config::Str2Map(parameters);
+  Config config;
+  config.Set(param);
+  if (config.num_threads > 0) {
+    omp_set_num_threads(config.num_threads);
+  }
+
+  int32_t total_nrow_to_add = 0;
+  for (int j = 0; j < nmat; ++j) {
+    total_nrow_to_add += nrow[j];
+  }
+
+  std::vector<std::function<std::vector<double>(int row_idx)>> get_row_fun;
+  for (int j = 0; j < nmat; ++j) {
+    get_row_fun.push_back(RowFunctionFromDenseMatric(data[j], nrow[j], ncol, data_type, is_row_major));
+  }
+  
+  // TODO: Resize If oversize
+
+  int32_t start_row = 0;
+  for (int j = 0; j < nmat; ++j) {
+    OMP_INIT_EX();
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < nrow[j]; ++i) {
+      OMP_LOOP_EX_BEGIN();
+      const int tid = omp_get_thread_num();
+      auto one_row = get_row_fun[j](i);
+      ret->PushOneRow(tid, start_row + i, one_row);
+      OMP_LOOP_EX_END();
+    }
+    OMP_THROW_EX();
+
+    start_row += nrow[j];
+  }
+  
+  API_END();
+}
+int LGBM_DatasetFinishLoad(DatasetHandle* dataset){
+  API_BEGIN();
+
+  // TODO: check size match
+  auto ret = reinterpret_cast<Dataset*>(dataset);
+  ret->FinishLoad();
+  API_END();
+}
+
 int LGBM_DatasetCreateFromCSR(const void* indptr,
                               int indptr_type,
                               const int32_t* indices,
