@@ -1,0 +1,9 @@
+-I
+./include
+-I
+/opt/homebrew/opt/llvm/include
+-L
+/opt/homebrew/opt/llvm/lib
+-x
+c++
+-std=c++11
