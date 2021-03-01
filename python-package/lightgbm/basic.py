@@ -1269,10 +1269,12 @@ class Dataset:
         elif isinstance(data, np.ndarray):
             self.__init_from_np2d(data, params_str, ref_dataset)
         elif isinstance(data, list) and len(data) > 0 and all(isinstance(x, np.ndarray) for x in data):
-            self.__init_from_iterator(data, params_str, ref_dataset)
-            # self.__init_from_list_np2d(data, params_str, ref_dataset)
+            self.__init_from_list_np2d(data, params_str, ref_dataset)
         elif isinstance(data, dt_DataTable):
             self.__init_from_np2d(data.to_numpy(), params_str, ref_dataset)
+        elif hasattr(data, '__iter__'):
+            # Iterator
+            self.__init_from_iterator(data, params_str, ref_dataset)
         else:
             try:
                 csr = scipy.sparse.csr_matrix(data)
@@ -1367,8 +1369,7 @@ class Dataset:
             ctypes.byref(self.handle)))
         return self
 
-    def __init_from_iterator(self, mats, params_str, ref_dataset):
-        """TODO"""
+    def __mats_to_c(mats):
         ncol = mats[0].shape[1]
         nrow = np.zeros((len(mats),), np.int32)
         if mats[0].dtype == np.float64:
@@ -1399,6 +1400,13 @@ class Dataset:
             ptr_data[i] = chunk_ptr_data
             type_ptr_data = chunk_type_ptr_data
             holders.append(holder)
+        return (nrow, ncol, ptr_data, type_ptr_data)
+        
+
+    def __init_from_iterator(self, iterater, params_str, ref_dataset):
+        """TODO"""
+        mats = list(iterater)
+        (nrow, ncol, ptr_data, type_ptr_data) = self.__mats_to_c(mats)
 
         self.handle = ctypes.c_void_p()
         _safe_call(_LIB.LGBM_DatasetCreateEmptyWithSampleFromMats(
