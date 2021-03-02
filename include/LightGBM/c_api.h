@@ -270,6 +270,7 @@ LIGHTGBM_C_EXPORT int LGBM_DatasetCreateEmptyWithSampleFromMats(int32_t nmat,
 
 LIGHTGBM_C_EXPORT int LGBM_DatasetAddRowsFromMats(int32_t nmat,
                                const void** data,
+                               int32_t start_row,
                                int data_type,
                                int32_t* nrow,
                                int32_t ncol,

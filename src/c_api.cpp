@@ -1196,6 +1196,7 @@ int LGBM_DatasetCreateEmptyWithSampleFromMats(int32_t nmat,
 
 int LGBM_DatasetAddRowsFromMats(int32_t nmat,
                                const void** data,
+                               int32_t start_row,
                                int data_type,
                                int32_t* nrow,
                                int32_t ncol,
@@ -1226,7 +1227,6 @@ int LGBM_DatasetAddRowsFromMats(int32_t nmat,
   
   // TODO: Resize If oversize
 
-  int32_t start_row = 0;
   for (int j = 0; j < nmat; ++j) {
     OMP_INIT_EX();
     #pragma omp parallel for schedule(static)
