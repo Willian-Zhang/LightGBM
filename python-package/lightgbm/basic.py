@@ -1369,7 +1369,7 @@ class Dataset:
             ctypes.byref(self.handle)))
         return self
 
-    def __mats_to_c(mats):
+    def __mats_to_c(self, mats):
         ncol = mats[0].shape[1]
         nrow = np.zeros((len(mats),), np.int32)
         if mats[0].dtype == np.float64:
