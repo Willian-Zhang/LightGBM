@@ -1403,13 +1403,13 @@ class Dataset:
         return (nrow, ncol, ptr_data, type_ptr_data)
         
 
-    def __init_from_iterator(self, iterater, params_str, ref_dataset):
+    def __init_from_iterator(self, iterator, params_str, ref_dataset):
         """
         TODO:
         - currently using 2 pass here , to do on Sample API Change
         """
 
-        mats = list(iterater)
+        mats = list(iterator)
         (nrow, ncol, ptr_data, type_ptr_data) = self.__mats_to_c(mats)
         
         self.handle = ctypes.c_void_p()
@@ -1425,7 +1425,7 @@ class Dataset:
             ctypes.byref(self.handle)))
 
         start_row = 0
-        for i, mat in enumerate(iterater): 
+        for i, mat in enumerate(iterator): 
             (nrow_1, ncol_1, ptr_data_1, type_ptr_data_1) = self.__mats_to_c([mat])
             assert ncol_1 == ncol_1, f"Sample #Col mismath on iterate #{i}"
             assert type_ptr_data == type_ptr_data_1, f"Sample type mismath on iterate #{i}"
