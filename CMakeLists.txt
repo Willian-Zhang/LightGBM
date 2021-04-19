@@ -15,9 +15,38 @@ OPTION(BUILD_CPP_TEST "Build C++ tests with Google Test" OFF)
 OPTION(BUILD_STATIC_LIB "Build static library" OFF)
 OPTION(__BUILD_FOR_R "Set to ON if building lib_lightgbm for use with the R package" OFF)
 OPTION(__INTEGRATE_OPENCL "Set to ON if building LightGBM with the OpenCL ICD Loader and its dependencies included" OFF)
+# https://discourse.cmake.org/t/how-to-determine-which-architectures-are-available-apple-m1/2401/12
+# Enable/Disable universal build on Apple Silicon
+option(JAMBA_ENABLE_XCODE_UNIVERSAL_BUILD "Enable building x86/arm64 universal binary on Apple Silicon" ON)
 
 if(APPLE)
   OPTION(APPLE_OUTPUT_DYLIB "Output dylib shared library" OFF)
+
+  # set the deployment target if provided
+  if(JAMBA_MACOS_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "${JAMBA_MACOS_DEPLOYMENT_TARGET}" CACHE STRING "")
+  endif()
+
+  # on macOS "uname -m" returns the architecture (x86_64 or arm64)
+  execute_process(
+      COMMAND uname -m
+      RESULT_VARIABLE result
+      OUTPUT_VARIABLE JAMBA_OSX_NATIVE_ARCHITECTURE
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
+  # determine if we do universal build or native build
+  if(JAMBA_ENABLE_XCODE_UNIVERSAL_BUILD                     # is universal build enabled?
+      AND (CMAKE_GENERATOR STREQUAL "Xcode")                # works only with Xcode
+      AND (JAMBA_OSX_NATIVE_ARCHITECTURE STREQUAL "arm64")) # and only when running on arm64
+    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
+    set(JAMBA_ARCHIVE_ARCHITECTURE "macOS_universal")
+    message(STATUS "macOS universal (x86_64 / arm64) build")
+  else()
+    set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "")
+    set(JAMBA_ARCHIVE_ARCHITECTURE "macOS_${JAMBA_OSX_NATIVE_ARCHITECTURE}")
+    message(STATUS "macOS native ${JAMBA_OSX_NATIVE_ARCHITECTURE} build")
+  endif()
 endif(APPLE)
 
 if(__INTEGRATE_OPENCL)
