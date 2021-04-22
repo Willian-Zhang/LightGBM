@@ -199,7 +199,7 @@ Core Parameters
 
    -  **Note**: please **don't** change this during training, especially when running multiple jobs simultaneously by external packages, otherwise it may cause undesirable errors
 
--  ``device_type`` :raw-html:`<a id="device_type" title="Permalink to this parameter" href="#device_type">&#x1F517;&#xFE0E;</a>`, default = ``cpu``, type = enum, options: ``cpu``, ``gpu``, aliases: ``device``
+-  ``device_type`` :raw-html:`<a id="device_type" title="Permalink to this parameter" href="#device_type">&#x1F517;&#xFE0E;</a>`, default = ``cpu``, type = enum, options: ``cpu``, ``gpu``, ``cuda``, aliases: ``device``
 
    -  device for the tree learning, you can use GPU to achieve the faster learning
 
@@ -228,6 +228,8 @@ Core Parameters
    -  you can `raise issues <https://github.com/microsoft/LightGBM/issues>`__ in LightGBM GitHub repo when you meet the unstable results
 
    -  **Note**: setting this to ``true`` may slow down the training
+
+   -  **Note**: to avoid potential instability due to numerical issues, please set ``force_col_wise=true`` or ``force_row_wise=true`` when setting ``deterministic=true``
 
 Learning Control Parameters
 ---------------------------

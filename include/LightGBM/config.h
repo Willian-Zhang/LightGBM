@@ -215,7 +215,7 @@ struct Config {
 
   // [doc-only]
   // type = enum
-  // options = cpu, gpu
+  // options = cpu, gpu, cuda
   // alias = device
   // desc = device for the tree learning, you can use GPU to achieve the faster learning
   // desc = **Note**: it is recommended to use the smaller ``max_bin`` (e.g. 63) to get the better speed up
@@ -236,6 +236,7 @@ struct Config {
   // desc = when you use the different seeds, different LightGBM versions, the binaries compiled by different compilers, or in different systems, the results are expected to be different
   // desc = you can `raise issues <https://github.com/microsoft/LightGBM/issues>`__ in LightGBM GitHub repo when you meet the unstable results
   // desc = **Note**: setting this to ``true`` may slow down the training
+  // desc = **Note**: to avoid potential instability due to numerical issues, please set ``force_col_wise=true`` or ``force_row_wise=true`` when setting ``deterministic=true``
   bool deterministic = false;
 
   #pragma endregion
