@@ -1272,6 +1272,9 @@ class Dataset:
             self.__init_from_list_np2d(data, params_str, ref_dataset)
         elif isinstance(data, dt_DataTable):
             self.__init_from_np2d(data.to_numpy(), params_str, ref_dataset)
+        elif hasattr(data, '__iter__'):
+            # Iterator
+            self.__init_from_iterator(data, params_str, ref_dataset)
         else:
             try:
                 csr = scipy.sparse.csr_matrix(data)
@@ -1320,8 +1323,8 @@ class Dataset:
             ctypes.byref(self.handle)))
         return self
 
-    def __init_from_list_np2d(self, mats, params_str, ref_dataset):
-        """Initialize data from a list of 2-D numpy matrices."""
+
+    def __mats_to_c(self, mats):
         ncol = mats[0].shape[1]
         nrow = np.zeros((len(mats),), np.int32)
         if mats[0].dtype == np.float64:
@@ -1352,6 +1355,11 @@ class Dataset:
             ptr_data[i] = chunk_ptr_data
             type_ptr_data = chunk_type_ptr_data
             holders.append(holder)
+        return (nrow, ncol, ptr_data, type_ptr_data)
+
+    def __init_from_list_np2d(self, mats, params_str, ref_dataset):
+        """Initialize data from a list of 2-D numpy matrices."""
+        (nrow, ncol, ptr_data, type_ptr_data) = self.__mats_to_c(mats)
 
         self.handle = ctypes.c_void_p()
         _safe_call(_LIB.LGBM_DatasetCreateFromMats(
@@ -1364,6 +1372,50 @@ class Dataset:
             c_str(params_str),
             ref_dataset,
             ctypes.byref(self.handle)))
+        return self    
+
+    def __init_from_iterator(self, iterator, params_str, ref_dataset):
+        """
+        TODO:
+        - currently using 2 pass here , to do on Sample API Change
+        """
+
+        mats = list(iterator)
+        (nrow, ncol, ptr_data, type_ptr_data) = self.__mats_to_c(mats)
+        
+        self.handle = ctypes.c_void_p()
+        _safe_call(_LIB.LGBM_DatasetCreateEmptyWithSampleFromMats(
+            ctypes.c_int(len(mats)),
+            ctypes.cast(ptr_data, ctypes.POINTER(ctypes.POINTER(ctypes.c_double))),
+            ctypes.c_int(type_ptr_data),
+            nrow.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
+            ctypes.c_int(ncol),
+            ctypes.c_int(C_API_IS_ROW_MAJOR),
+            c_str(params_str),
+            ref_dataset,
+            ctypes.byref(self.handle)))
+
+        start_row = 0
+        for i, mat in enumerate(iterator): 
+            (nrow_1, ncol_1, ptr_data_1, type_ptr_data_1) = self.__mats_to_c([mat])
+            assert ncol_1 == ncol_1, f"Sample #Col mismath on iterate #{i}"
+            assert type_ptr_data == type_ptr_data_1, f"Sample type mismath on iterate #{i}"
+            _safe_call(_LIB.LGBM_DatasetAddRowsFromMats(
+                ctypes.c_int(1),
+                ctypes.cast(ptr_data_1, ctypes.POINTER(ctypes.POINTER(ctypes.c_double))),
+                ctypes.c_int(start_row),
+                ctypes.c_int(type_ptr_data),
+                nrow.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
+                ctypes.c_int(ncol),
+                ctypes.c_int(C_API_IS_ROW_MAJOR),
+                c_str(params_str),
+                self.handle))
+            start_row += nrow_1[0]
+
+        total_nrow = start_row
+
+        _safe_call(_LIB.LGBM_DatasetFinishLoad(self.handle))
+
         return self
 
     def __init_from_csr(self, csr, params_str, ref_dataset):
